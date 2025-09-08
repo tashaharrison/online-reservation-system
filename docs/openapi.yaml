@@ -1,0 +1,145 @@
+openapi: 3.0.4
+info:
+  title: Online Reservation System API
+  version: 1.0.0
+  description: API for managing events and seat reservations
+servers:
+  - url: http://localhost:3000
+paths:
+  /events/create:
+    post:
+      summary: Create a new event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the event
+                totalSeats:
+                  type: integer
+                  minimum: 10
+                  maximum: 10000
+                  description: Total number of seats for the event (10-10,000)
+              required:
+                - name
+                - totalSeats
+      responses:
+        '201':
+          description: Event created
+        '400':
+          description: Invalid event data
+  /events/{id}:
+    get:
+      summary: Get event by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event found
+        '404':
+          description: Event not found
+  /seats/get/{id}:
+    get:
+      summary: Get seat by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Seat found
+        '404':
+          description: Seat not found
+  /seats/list/{eventId}:
+    get:
+      summary: List available seats for an event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of available seats
+  /seats/hold:
+    post:
+      summary: Hold a seat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: Unique identifier for the seat
+                UUID:
+                  type: string
+                  description: Unique identifier for the user holding the seat
+      responses:
+        '200':
+          description: Seat held
+        '404':
+          description: Seat not found
+        '409':
+          description: Seat not available
+        '429':
+          description: Max held seats reached
+        '423':
+          description: Seat is already locked
+  /seats/refresh:
+    post:
+      summary: Refresh hold on a seat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                UUID:
+                  type: string
+      responses:
+        '200':
+          description: Seat hold refreshed
+        '404':
+          description: Seat not found
+        '409':
+          description: Seat is not On hold
+        '403':
+          description: UUID does not match held seat
+  /seats/reserve:
+    post:
+      summary: Reserve a seat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                UUID:
+                  type: string
+      responses:
+        '200':
+          description: Seat reserved
+        '404':
+          description: Seat not found
+        '403':
+          description: Seat is not On hold or UUID mismatch

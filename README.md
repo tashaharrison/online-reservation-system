@@ -1,10 +1,9 @@
 # Online Reservation System
 
-This is a Node.js + TypeScript application using Express and Redis for event management.
+Online reservation system API for creating and managing seat reservation at events.
 
 ## Prerequisites
 - Docker & Docker Compose
-- Node.js (v20+ recommended)
 
 ## Setup
 
@@ -25,39 +24,10 @@ This is a Node.js + TypeScript application using Express and Redis for event man
    ```
    This will start both the Node.js app and Redis.
 
-4. **Build the TypeScript code:**
-   ```bash
-   npm run build
-   ```
+## Documentation
 
-5. **Run the application:**
-   ```bash
-   npm start
-   ```
-   Or, for development with auto-reload:
-   ```bash
-   npx ts-node index.ts
-   ```
-
-## API Endpoints
-
-- **Create Event**
-  - `POST /events/create`
-   - Body: `{ "name": "Event Name", "totalSeats": 100 }`
-  - Response: Created event object
-
-- **Get Event**
-  - `GET /events/:id`
-  - Response: Event object or 404 if not found
-
-## Notes
-- Redis connection details are set in `docker-compose.yml` and used by the app.
-- All code is in TypeScript. Main entry: `index.ts`.
-- Event data is stored in Redis as hashes.
-
-## Development
-- Edit code in `routes/`, `controllers/`, `models/`, and `database/` directories.
-- Use `.env` for custom environment variables if needed.
+- [Design Document](./docs/design-document.md)
+- [OpenAPI Schema](./docs/openapi.yaml)
 
 ## License
 MIT
