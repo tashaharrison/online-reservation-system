@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { Event, isValidEvent, saveEventToRedis, getEventFromRedis } from "../models/event.model";
-import { Seat, saveSeatToRedis, SeatStatus, createSeatsWithPipeline } from "../models/seat.model";
+import { createSeatsWithPipeline } from "../models/seat.model";
 
 /**
  * Create a new event and its seats.
