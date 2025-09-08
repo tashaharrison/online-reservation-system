@@ -9,18 +9,18 @@ import redisClient from '../database/redisClient';
  * 
  * id: Unique identifier for the event.
  * name: Name of the event.
- * seatsAvailable: Number of seats available for the event (must be between 10 and 10,000 inclusive).
+ * totalSeats: Number of seats available for the event (must be between 10 and 10,000 inclusive).
  */
 export interface Event {
   id: string; // Unique identifier for the event
   name: string;
-  seatsAvailable: number; // Must be between 10 and 10,000 inclusive
+  totalSeats: number; // Must be between 10 and 10,000 inclusive
 }
 
 
 /**
  * Validates an event object.
- * Checks that the event has a string id, string name, and seatsAvailable is a number between 10 and 10,000.
+ * Checks that the event has a string id, string name, and totalSeats is a number between 10 and 10,000.
  * 
  * @param event - The event object to validate.
  * @returns True if the event is valid, false otherwise.
@@ -29,9 +29,9 @@ export function isValidEvent(event: Event): boolean {
   return (
     typeof event.id === 'string' &&
     typeof event.name === 'string' &&
-    typeof event.seatsAvailable === 'number' &&
-    event.seatsAvailable >= 10 &&
-    event.seatsAvailable <= 10000
+    typeof event.totalSeats === 'number' &&
+    event.totalSeats >= 10 &&
+    event.totalSeats <= 10000
   );
 }
 
@@ -45,7 +45,7 @@ export async function saveEventToRedis(event: Event): Promise<void> {
   await redisClient.hSet(`event:${event.id}`, {
     id: event.id,
     name: event.name,
-    seatsAvailable: event.seatsAvailable.toString(),
+    totalSeats: event.totalSeats.toString(),
   });
 }
 
@@ -62,6 +62,6 @@ export async function getEventFromRedis(id: string): Promise<Event | null> {
   return {
     id: data.id,
     name: data.name,
-    seatsAvailable: Number(data.seatsAvailable),
+    totalSeats: Number(data.totalSeats),
   };
 }

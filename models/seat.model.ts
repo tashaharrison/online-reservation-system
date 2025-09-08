@@ -1,4 +1,5 @@
 import redisClient from '../database/redisClient';
+import { getEventFromRedis } from './event.model';
 
 /**
  * Seat model interface.
@@ -70,26 +71,32 @@ export async function saveSeatToRedis(seat: Seat, res?: import('express').Respon
 }
 
 /**
- * Retrieves all seats for a given event ID.
- * 
+ * Retrieves all available seats for a given event ID and returns the event object.
+ *
  * @param eventId - The event ID to look up seats for.
- * @returns Array of Seat objects.
+ * @returns An object containing:
+ *   - seats: Array of available Seat objects
+ *   - total: Number of available seats
+ *   - event: The full event object or null if not found
  */
-export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[]; total: number }> {
-	const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
-	const seats: Seat[] = [];
-	for (const id of seatIds) {
-		const data = await redisClient.hGetAll(`seat:${id}`);
-		if (data && data.id && data.status === SeatStatus.AVAILABLE) {
-			seats.push({
-				id: data.id,
-				eventId: data.eventId,
-				UUID: data.UUID,
-				status: data.status as SeatStatus,
-			});
+export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[]; total: number; event: object | null }> {
+		const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
+		const seats: Seat [] = [];
+		// Get event name.
+		const event = await getEventFromRedis(eventId);
+    console.log('Event data:', eventId);
+		for (const id of seatIds) {
+			const data = await redisClient.hGetAll(`seat:${id}`);
+			if (data && data.id && data.status === SeatStatus.AVAILABLE) {
+				seats.push({
+					id: data.id,
+					eventId: data.eventId,
+					UUID: data.UUID,
+					status: data.status as SeatStatus,
+				});
+			}
 		}
-	}
-	return { total: seats.length, seats };
+		return { total: seats.length, event, seats };
 }
 
 /**

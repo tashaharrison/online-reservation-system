@@ -43,7 +43,7 @@ This is a Node.js + TypeScript application using Express and Redis for event man
 
 - **Create Event**
   - `POST /events/create`
-  - Body: `{ "name": "Event Name", "seatsAvailable": 100 }`
+   - Body: `{ "name": "Event Name", "totalSeats": 100 }`
   - Response: Created event object
 
 - **Get Event**

@@ -5,7 +5,8 @@ import { Seat, saveSeatToRedis, SeatStatus } from '../models/seat.model';
 
 /**
  * Create a new event and its seats.
- * Validates event data, stores event in Redis, and creates seats in batches.
+ * Each seat is individually stored in Redis and created in batches to handle large number of seats.
+ * The batches could be queued and then processed with a worker for better performance.
  * Returns 201 on success, 400 for invalid data, and 500 for server errors.
  *
  * @function createEvent
@@ -16,27 +17,27 @@ import { Seat, saveSeatToRedis, SeatStatus } from '../models/seat.model';
  */
 export async function createEvent(req: Request, res: Response): Promise<void> {
   try {
-    const { name, seatsAvailable } = req.body;
+  const { name, totalSeats } = req.body;
     const event: Event = {
       id: uuidv4(),
       name,
-      seatsAvailable: Number(seatsAvailable),
+      totalSeats: Number(totalSeats),
     };
 
+    // Check is the event is valid and seats within the limits.
     if (!isValidEvent(event)) {
-      res.status(400).json({ error: 'Invalid event data. Seats must be between 10 and 10,000.' });
+      res.status(400).json({ error: 'Invalid event data. Total seats must be between 10 and 10,000.' });
       return;
     }
 
     await saveEventToRedis(event);
 
-    // Create seat objects in Redis for each seat in batches of 500
-    // This is to handle large numbers of seats efficiently and prevent timeouts
+    // Create seat objects in Redis for each seat in batches of 500.
     const batchSize = 500;
     let created = 0;
-    while (created < event.seatsAvailable) {
+    while (created < event.totalSeats) {
       const seatPromises: Promise<void>[] = [];
-      const limit = Math.min(batchSize, event.seatsAvailable - created);
+      const limit = Math.min(batchSize, event.totalSeats - created);
       for (let i = 0; i < limit; i++) {
         const seat: Seat = {
           id: uuidv4(),
@@ -50,7 +51,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
       created += limit;
     }
 
-    console.log('Seats created for: ', event.name);
+    console.log(`${created} seats created for: ${event.name}`);
     res.status(201).json(event);
   } catch (error) {
     console.error('Error creating event:', error);
@@ -69,11 +70,16 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
  * @returns {Promise<void>} Responds with event or error
  */
 export async function getEvent(req: Request, res: Response): Promise<void> {
-  const { id } = req.params;
-  const event = await getEventFromRedis(id);
-  if (!event) {
-    res.status(404).json({ error: 'Event not found.' });
-    return;
+  try {
+    const { id } = req.params;
+    const event = await getEventFromRedis(id);
+    if (!event) {
+      res.status(404).json({ error: 'Event not found.' });
+      return;
+    }
+    res.json(event);
+  } catch (error) {
+    console.error('Error retrieving event:', error);
+    res.status(500).json({ error: 'Internal server error.' });
   }
-  res.json(event);
 }

@@ -9,6 +9,9 @@ import { acquireSeatLock, releaseSeatLock } from '../utils/seatLock';
 
 /**
  * List all seats for a given event.
+ * Returns the and a 500 error for a server error.
+ * If there are no seats it returns an empty array. 
+ * This is to reflect the fact that the event exists, but is sold out.
  * 
  * @function listSeats
  * 
@@ -65,7 +68,8 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 		const { id, UUID, LOCK_EXPIRATION_TIME = 60 } = req.body;
 		// Find the seat by seatId
 		const seat = await getSeatById(id);
-    console.log('seat to hold: ', seat, id);
+
+    // Return appropriate error and status.
 		if (!seat) {
 			res.status(404).json({ error: 'Seat not found.' });
 			return;
@@ -75,7 +79,7 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 			return;
 		}
 
-		// Check if the seat is locked and update seat accordingly
+		// Check if the seat is locked and update seat accordingly.
     const lockResult = await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
     if (lockResult !== 'OK') {
       res.status(423).json({ error: 'Seat is already locked.' });
@@ -119,11 +123,11 @@ export async function reserveSeat(req: Request, res: Response): Promise<void> {
 			return;
 		}
 
-    // Update the status and reserve
+    // Update the status and reserve.
 		seat.status = SeatStatus.RESERVED;
 		await saveSeatToRedis(seat, res);
 
-		// Release the seat lock
+		// Release the seat lock.
 		await releaseSeatLock(id);
 		res.json({ message: 'Seat reserved successfully.', seat });
 	} catch (error) {
