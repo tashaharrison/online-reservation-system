@@ -138,10 +138,13 @@ For development purposes it contains two extra endpoints for getting a single ev
 - `seat:{id}:lock`: Lock key for seat hold
 
 ## Error Handling
-- API returns appropriate status codes for not found, conflicts, max holds, and lock errors.
+- API returns status codes for not found, conflicts, max holds, and lock errors.
 
 ## Future Improvements
-- Add authentication.
+- Add authentication using JWT.
 - Add extensive tests for automated testing.
-- Add autoscaling for horizontal scaling of both the node and redis clusters.
-- Add queueing for the requests to hold a seat. This will help during busy periods. It should be possible to process requests for seats for several events concurrently and will protect both smaller and larger events.
+- Implement rate limiting.
+- Add centralised Error handling and a Logger for consistency.
+- Add enhanced data validation for the redis data objects.
+- Add validation on the API requests using the open api schema.
+- Caching for the seat list, which would be invalidated by seat updates during busy times.

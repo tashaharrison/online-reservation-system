@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { Event, isValidEvent, saveEventToRedis, getEventFromRedis } from "../models/event.model";
-import { Seat, saveSeatToRedis, SeatStatus } from "../models/seat.model";
+import { Seat, saveSeatToRedis, SeatStatus, createSeatsWithPipeline } from "../models/seat.model";
 
 /**
  * Create a new event and its seats.
- * Each seat is individually stored in Redis and created in batches to handle large number of seats.
- * The batches could be queued and then processed with a worker for better performance.
+ * Each seat is stored in Redis using pipeline operations for optimal performance.
+ * Pipeline operations significantly reduce Redis round-trip time for bulk operations.
  * Returns 201 on success, 400 for invalid data, and 500 for server errors.
  *
  * @function createEvent
@@ -26,32 +26,16 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 
     // Check is the event is valid and seats within the limits.
     if (!isValidEvent(event)) {
-  res.status(400).json({ error: "Invalid event data. Total seats must be between 10 and 10,000." });
+    res.status(400).json({ error: "Invalid event data. Total seats must be between 10 and 10,000." });
       return;
     }
 
     await saveEventToRedis(event);
 
-    // Create seat objects in Redis for each seat in batches of 500.
-    const batchSize = 500;
-    let created = 0;
-    while (created < event.totalSeats) {
-      const seatPromises: Promise<void>[] = [];
-      const limit = Math.min(batchSize, event.totalSeats - created);
-      for (let i = 0; i < limit; i++) {
-        const seat: Seat = {
-          id: uuidv4(),
-          eventId: event.id,
-          UUID: "", // Initially no user assigned
-          status: SeatStatus.AVAILABLE,
-        };
-        seatPromises.push(saveSeatToRedis(seat));
-      }
-      await Promise.all(seatPromises);
-      created += limit;
-    }
+    // Create seats.
+    await createSeatsWithPipeline(event.id, event.totalSeats);
 
-    console.log(`${created} seats created for: ${event.name}`);
+    console.log(`${event.totalSeats} seats created for: ${event.name}`);
     res.status(201).json(event);
   } catch (error) {
   console.error("Error creating event:", error);

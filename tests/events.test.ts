@@ -3,7 +3,24 @@ import request from "supertest";
 import express from "express";
 import eventsRouter from "../routes/events.route";
 
-jest.mock("../database/redisClient");
+// Mock the Redis client properly
+jest.mock("../database/redisClient", () => ({
+  __esModule: true,
+  default: {
+    connect: jest.fn(() => Promise.resolve()),
+    quit: jest.fn(() => Promise.resolve()),
+    hSet: jest.fn(() => Promise.resolve()),
+    hGetAll: jest.fn(() => Promise.resolve({})),
+    sAdd: jest.fn(() => Promise.resolve()),
+    sMembers: jest.fn(() => Promise.resolve([])),
+    multi: jest.fn(() => ({
+      hSet: jest.fn().mockReturnThis(),
+      sAdd: jest.fn().mockReturnThis(),
+      exec: jest.fn(() => Promise.resolve([])),
+    })),
+    on: jest.fn(),
+  },
+}));
 
 beforeAll(async () => {
   if (redisClient && typeof redisClient.connect === "function") {

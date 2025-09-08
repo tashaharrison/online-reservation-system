@@ -29,9 +29,39 @@ paths:
                 - totalSeats
       responses:
         "201":
-          description: Event created
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Unique identifier for the event
+                  name:
+                    type: string
+                    description: Name of the event
+                  totalSeats:
+                    type: integer
+                    description: Total number of seats for the event
         "400":
           description: Invalid event data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /events/{id}:
     get:
       summary: Get event by ID
@@ -44,8 +74,35 @@ paths:
       responses:
         "200":
           description: Event found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  totalSeats:
+                    type: integer
         "404":
           description: Event not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /seats/get/{id}:
     get:
       summary: Get seat by ID
@@ -58,8 +115,38 @@ paths:
       responses:
         "200":
           description: Seat found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  eventId:
+                    type: string
+                  UUID:
+                    type: string
+                  status:
+                    type: string
+                    enum: ["Available", "On hold", "Reserved"]
         "404":
           description: Seat not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /seats/list/{eventId}:
     get:
       summary: List available seats for an event
@@ -71,10 +158,50 @@ paths:
             type: string
       responses:
         "200":
-          description: List of available seats
+          description: List of available seats with event details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    description: Total number of available seats
+                  event:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      totalSeats:
+                        type: integer
+                  seats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        eventId:
+                          type: string
+                        UUID:
+                          type: string
+                        status:
+                          type: string
+                          enum: ["Available", "On hold", "Reserved"]
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /seats/hold:
     post:
-      summary: Hold a seat
+      summary: Hold a seat for a configured amount of time
       requestBody:
         required: true
         content:
@@ -88,20 +215,79 @@ paths:
                 UUID:
                   type: string
                   description: Unique identifier for the user holding the seat
+              required:
+                - id
+                - UUID
       responses:
         "200":
-          description: Seat held
+          description: Seat held successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  seat:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      eventId:
+                        type: string
+                      UUID:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["Available", "On hold", "Reserved"]
         "404":
           description: Seat not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
         "409":
           description: Seat not available
-        "429":
-          description: Max held seats reached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
         "423":
           description: Seat is already locked
-  /seats/refresh:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "429":
+          description: Max held seats reached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /seats/hold/refresh:
     post:
-      summary: Refresh hold on a seat
+      summary: Refresh hold on a seat, restarting the lock expiration timer
       requestBody:
         required: true
         content:
@@ -111,20 +297,62 @@ paths:
               properties:
                 id:
                   type: string
+                  description: Seat ID
                 UUID:
                   type: string
+                  description: User UUID that must match the held seat
+              required:
+                - id
+                - UUID
       responses:
         "200":
-          description: Seat hold refreshed
-        "404":
-          description: Seat not found
-        "409":
-          description: Seat is not On hold
+          description: Seat hold refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         "403":
           description: UUID does not match held seat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "404":
+          description: Seat not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "409":
+          description: Seat is not On hold
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /seats/reserve:
     post:
-      summary: Reserve a seat
+      summary: Reserve a seat (must be On hold and UUID must match)
       requestBody:
         required: true
         content:
@@ -134,12 +362,106 @@ paths:
               properties:
                 id:
                   type: string
+                  description: Seat ID
                 UUID:
                   type: string
+                  description: User UUID that must match the held seat
+              required:
+                - id
+                - UUID
       responses:
         "200":
-          description: Seat reserved
-        "404":
-          description: Seat not found
+          description: Seat reserved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  seat:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      eventId:
+                        type: string
+                      UUID:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["Available", "On hold", "Reserved"]
         "403":
           description: Seat is not On hold or UUID mismatch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "404":
+          description: Seat not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+components:
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the event
+        name:
+          type: string
+          description: Name of the event
+        totalSeats:
+          type: integer
+          description: Total number of seats for the event
+      required:
+        - id
+        - name
+        - totalSeats
+    Seat:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the seat
+        eventId:
+          type: string
+          description: References the event's ID
+        UUID:
+          type: string
+          description: References the user's UUID (empty if not held)
+        status:
+          type: string
+          enum: ["Available", "On hold", "Reserved"]
+          description: Current status of the seat
+      required:
+        - id
+        - eventId
+        - UUID
+        - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error

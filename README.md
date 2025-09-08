@@ -7,18 +7,12 @@ Online reservation system API for creating and managing seat reservation at even
 
 ## Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone git@github.com:tashaharrison/online-reservation-system.git
-   cd online-reservation-system
-   ```
-
-2. **Install dependencies:**
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Start Redis and the app using Docker Compose:**
+2. **Start Redis and the app using Docker Compose:**
    ```bash
    docker compose up -d
    ```

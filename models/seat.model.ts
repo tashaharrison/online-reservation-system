@@ -138,3 +138,32 @@ export async function getSeatById(id: string): Promise<Seat | null> {
   };
 }
 
+/**
+ * Creates multiple seats for an event using Redis multi for optimal performance.
+ *
+ * @function createSeatsWithPipeline
+ * 
+ * @param {string} eventId - The event ID to create seats for
+ * @param {number} totalSeats - Total number of seats to create
+ * @returns {Promise<void>} Resolves when all seats are created
+ */
+export async function createSeatsWithPipeline(eventId: string, totalSeats: number): Promise<void> {
+  const { v4: uuidv4 } = await import("uuid");
+  const multi = redisClient.multi();
+
+  // Generate all seat data and add to multi transaction.
+  for (let i = 0; i < totalSeats; i++) {
+    const seatId = uuidv4();
+
+    multi.hSet(`seat:${seatId}`, {
+      id: seatId,
+      eventId: eventId,
+      UUID: "",
+      status: SeatStatus.AVAILABLE,
+    });
+
+    multi.sAdd(`event:${eventId}:seats`, seatId);
+  }
+
+  await multi.exec();
+}
