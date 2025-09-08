@@ -145,3 +145,39 @@ export async function reserveSeat(req: Request, res: Response): Promise<void> {
 		res.status(500).json({ error: 'Internal server error.' });
 	}
 }
+
+/**
+ * Refresh the hold on a seat, restarting the lock expiration timer.
+ *
+ * @function refreshHoldSeat
+ * 
+ * @param {Request} req - Express request object containing seat id and UUID in body
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>} Responds with success message or error
+ */
+export async function refreshHoldSeat(req: Request, res: Response): Promise<void> {
+	try {
+		const { id, UUID } = req.body;
+		const LOCK_EXPIRATION_TIME = Number(process.env.LOCK_EXPIRATION_TIME) || 60;
+		const seat = await getSeatById(id);
+		if (!seat) {
+			res.status(404).json({ error: 'Seat not found.' });
+			return;
+		}
+		if (seat.status !== SeatStatus.ONHOLD) {
+			res.status(409).json({ error: 'Seat is not On hold.' });
+			return;
+		}
+		if (seat.UUID !== UUID) {
+			res.status(403).json({ error: 'UUID does not match held seat.' });
+			return;
+		}
+
+		// Refresh the lock by resetting the expiration.
+		await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
+		res.json({ message: `Seat hold refreshed for seat ${seat.id}`});
+	} catch (error) {
+		console.error('Error refreshing seat hold:', error);
+		res.status(500).json({ error: 'Internal server error.' });
+	}
+}
