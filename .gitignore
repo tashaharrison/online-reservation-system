@@ -1,0 +1,10 @@
+# Node.js
+node_modules/
+dist/
+.env
+
+# Logs
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
