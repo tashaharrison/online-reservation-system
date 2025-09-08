@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { Event, isValidEvent, saveEventToRedis, getEventFromRedis } from '../models/event.model';
-import { Seat, saveSeatToRedis, SeatStatus } from '../models/seat.model';
+import { Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
+import { Event, isValidEvent, saveEventToRedis, getEventFromRedis } from "../models/event.model";
+import { Seat, saveSeatToRedis, SeatStatus } from "../models/seat.model";
 
 /**
  * Create a new event and its seats.
@@ -26,7 +26,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 
     // Check is the event is valid and seats within the limits.
     if (!isValidEvent(event)) {
-      res.status(400).json({ error: 'Invalid event data. Total seats must be between 10 and 10,000.' });
+  res.status(400).json({ error: "Invalid event data. Total seats must be between 10 and 10,000." });
       return;
     }
 
@@ -42,7 +42,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
         const seat: Seat = {
           id: uuidv4(),
           eventId: event.id,
-          UUID: '', // Initially no user assigned
+          UUID: "", // Initially no user assigned
           status: SeatStatus.AVAILABLE,
         };
         seatPromises.push(saveSeatToRedis(seat));
@@ -54,8 +54,8 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
     console.log(`${created} seats created for: ${event.name}`);
     res.status(201).json(event);
   } catch (error) {
-    console.error('Error creating event:', error);
-    res.status(500).json({ error: 'Internal server error.' });
+  console.error("Error creating event:", error);
+  res.status(500).json({ error: "Internal server error." });
   }
 }
 
@@ -74,12 +74,12 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const event = await getEventFromRedis(id);
     if (!event) {
-      res.status(404).json({ error: 'Event not found.' });
+      res.status(404).json({ error: "Event not found." });
       return;
     }
     res.json(event);
   } catch (error) {
-    console.error('Error retrieving event:', error);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.error("Error retrieving event:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 }

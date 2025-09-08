@@ -1,4 +1,4 @@
-import redisClient from '../database/redisClient';
+import redisClient from "../database/redisClient";
 
 /**
  * Event interface defining the structure of an event object.
@@ -24,16 +24,16 @@ export interface Event {
  */
 export function isValidEvent(event: Event): boolean {
   return (
-    typeof event.id === 'string' &&
-    typeof event.name === 'string' &&
-    typeof event.totalSeats === 'number' &&
+  typeof event.id === "string" &&
+  typeof event.name === "string" &&
+  typeof event.totalSeats === "number" &&
     event.totalSeats >= 10 &&
     event.totalSeats <= 10000
   );
 }
 
 /**
- * Stores an event in Redis as a hash under the key 'event:{id}'.
+ * Stores an event in Redis as a hash under the key "event:{id}".
  *
  * @function saveEventToRedis
  * @param {Event} event - The event object to store
@@ -49,7 +49,7 @@ export async function saveEventToRedis(event: Event): Promise<void> {
 
 /**
  * Retrieves an event from Redis by its ID.
- * Fetches the hash stored under 'event:{id}' and returns it as an Event object.
+ * Fetches the hash stored under "event:{id}" and returns it as an Event object.
  *
  * @function getEventFromRedis
  * @param {string} id - The unique identifier of the event to retrieve

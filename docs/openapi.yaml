@@ -28,9 +28,9 @@ paths:
                 - name
                 - totalSeats
       responses:
-        '201':
+        "201":
           description: Event created
-        '400':
+        "400":
           description: Invalid event data
   /events/{id}:
     get:
@@ -42,9 +42,9 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Event found
-        '404':
+        "404":
           description: Event not found
   /seats/get/{id}:
     get:
@@ -56,9 +56,9 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Seat found
-        '404':
+        "404":
           description: Seat not found
   /seats/list/{eventId}:
     get:
@@ -70,7 +70,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: List of available seats
   /seats/hold:
     post:
@@ -89,15 +89,15 @@ paths:
                   type: string
                   description: Unique identifier for the user holding the seat
       responses:
-        '200':
+        "200":
           description: Seat held
-        '404':
+        "404":
           description: Seat not found
-        '409':
+        "409":
           description: Seat not available
-        '429':
+        "429":
           description: Max held seats reached
-        '423':
+        "423":
           description: Seat is already locked
   /seats/refresh:
     post:
@@ -114,13 +114,13 @@ paths:
                 UUID:
                   type: string
       responses:
-        '200':
+        "200":
           description: Seat hold refreshed
-        '404':
+        "404":
           description: Seat not found
-        '409':
+        "409":
           description: Seat is not On hold
-        '403':
+        "403":
           description: UUID does not match held seat
   /seats/reserve:
     post:
@@ -137,9 +137,9 @@ paths:
                 UUID:
                   type: string
       responses:
-        '200':
+        "200":
           description: Seat reserved
-        '404':
+        "404":
           description: Seat not found
-        '403':
+        "403":
           description: Seat is not On hold or UUID mismatch

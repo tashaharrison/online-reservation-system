@@ -1,5 +1,5 @@
-import redisClient from '../database/redisClient';
-import { getEventFromRedis } from './event.model';
+import redisClient from "../database/redisClient";
+import { getEventFromRedis } from "./event.model";
 
 /**
  * Enum for seat status.
@@ -10,9 +10,9 @@ import { getEventFromRedis } from './event.model';
  * @property {string} RESERVED - The seat has been reserved.
  */
 export enum SeatStatus {
-	AVAILABLE = 'Available',
-	ONHOLD = 'On hold',
-	RESERVED = 'Reserved',
+	AVAILABLE = "Available",
+	ONHOLD = "On hold",
+	RESERVED = "Reserved",
 }
 
 /**
@@ -21,8 +21,8 @@ export enum SeatStatus {
  * @interface Seat
  * 
  * @property {string} id - Unique identifier for the seat
- * @property {string} eventId - References the event's ID
- * @property {string} UUID - References the user's UUID
+ * @property {string} eventId - References the event"s ID
+ * @property {string} UUID - References the user"s UUID
  * @property {SeatStatus} status - Status of the seat (available, held, reserved)
  */
 export interface Seat {
@@ -43,24 +43,24 @@ export interface Seat {
  */
 export function isValidSeat(seat: Seat): boolean {
 	return (
-		typeof seat.id === 'string' && seat.id.trim() !== '' &&
-		typeof seat.eventId === 'string' && seat.eventId.trim() !== '' &&
-		typeof seat.UUID === 'string' && seat.UUID.trim() !== '' &&
+			typeof seat.id === "string" && seat.id.trim() !== "" &&
+			typeof seat.eventId === "string" && seat.eventId.trim() !== "" &&
+			typeof seat.UUID === "string" && seat.UUID.trim() !== "" &&
 		Object.values(SeatStatus).includes(seat.status)
 	);
 }
 
 /**
- * Saves a seat in Redis as a hash under key 'seat:{id}'.
- * Adds the seat ID to the event's seat set for lookup.
+ * Saves a seat in Redis as a hash under key "seat:{id}".
+ * Adds the seat ID to the event"s seat set for lookup.
  *
  * @function saveSeatToRedis
  * 
  * @param {Seat} seat - The seat object to save
- * @param {import('express').Response} [res] - Optional Express response object for error handling
+ * @param {import("express").Response} [res] - Optional Express response object for error handling
  * @returns {Promise<void>} Resolves when the seat is saved
  */
-export async function saveSeatToRedis(seat: Seat, res?: import('express').Response): Promise<void> {
+export async function saveSeatToRedis(seat: Seat, res?: import("express").Response): Promise<void> {
 	try {
 		await redisClient.hSet(`seat:${seat.id}`, {
 			id: seat.id,
@@ -68,12 +68,12 @@ export async function saveSeatToRedis(seat: Seat, res?: import('express').Respon
 			UUID: seat.UUID,
 			status: seat.status,
 		});
-		// Add seat ID to event's seat set for lookup
+		// Add seat ID to event"s seat set for lookup
 		await redisClient.sAdd(`event:${seat.eventId}:seats`, seat.id);
 	} catch (error) {
-		console.error('Error saving seat:', error);
+		console.error("Error saving seat:", error);
 		if (res) {
-			res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : error });
+			res.status(500).json({ error: "Internal server error", details: error instanceof Error ? error.message : error });
 		}
 		throw error;
 	}

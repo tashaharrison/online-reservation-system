@@ -1,12 +1,12 @@
-import { Request, Response } from 'express';
+import { Request, Response } from "express";
 import { 
 	getSeatsByEventId,
 	getSeatById, 
 	saveSeatToRedis, 
 	SeatStatus
-} from '../models/seat.model';
-import { acquireSeatLock, releaseSeatLock } from '../utils/seatLock';
-import { checkMaxSeats } from '../utils/checkMaxSeats';
+} from "../models/seat.model";
+import { acquireSeatLock, releaseSeatLock } from "../utils/seatLock";
+import { checkMaxSeats } from "../utils/checkMaxSeats";
 
 /**
  * List all seats for a given event.
@@ -26,8 +26,8 @@ export async function listSeats(req: Request, res: Response): Promise<void> {
 		const seats = await getSeatsByEventId(eventId, { availableOnly: true });
 		res.json(seats);
 	} catch (error) {
-		console.error('Error listing seats:', error);
-		res.status(500).json({ error: 'Internal server error.' });
+		console.error("Error listing seats:", error);
+		res.status(500).json({ error: "Internal server error." });
 	}
 }
 
@@ -45,13 +45,13 @@ export async function getSeat(req: Request, res: Response): Promise<void> {
 		const { id } = req.params;
 		const seat = await getSeatById(id);
 		if (!seat) {
-			res.status(404).json({ error: 'Seat not found.' });
+			res.status(404).json({ error: "Seat not found." });
 			return;
 		}
 		res.json(seat);
 	} catch (error) {
-		console.error('Error retrieving seat:', error);
-		res.status(500).json({ error: 'Internal server error.' });
+		console.error("Error retrieving seat:", error);
+		res.status(500).json({ error: "Internal server error." });
 	}
 }
 
@@ -72,7 +72,7 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
       
       // Limit the max seats a user can have on hold.
       const heldSeatsCount = await checkMaxSeats(id, UUID);
-      console.log('Held Seats: ', heldSeatsCount);
+      console.log("Held Seats: ", heldSeatsCount);
 			if (heldSeatsCount >= MAX_HELD_SEATS) {
 				res.status(429).json({ error: `User cannot hold more than ${MAX_HELD_SEATS} seats.` });
 				return;
@@ -81,18 +81,18 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 			// Find the seat by seatId
 			const seat = await getSeatById(id);
 			if (!seat) {
-					res.status(404).json({ error: 'Seat not found.' });
+					res.status(404).json({ error: "Seat not found." });
 					return;
 			}
 			if (seat.status !== SeatStatus.AVAILABLE) {
-					res.status(409).json({ error: 'Seat is not available.' });
+					res.status(409).json({ error: "Seat is not available." });
 					return;
 			}
 
 			// Check if the seat is locked and update seat accordingly.
 			const lockResult = await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
-			if (lockResult !== 'OK') {
-				res.status(423).json({ error: 'Seat is already locked.' });
+			if (lockResult !== "OK") {
+				res.status(423).json({ error: "Seat is already locked." });
 				return;
 			}
 			seat.UUID = UUID;
@@ -100,8 +100,8 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 			await saveSeatToRedis(seat, res);
 			res.json({ message: `Seat held for ${LOCK_EXPIRATION_TIME} seconds.`, seat });
 	} catch (error) {
-		console.error('Error holding seat:', error);
-		res.status(500).json({ error: 'Internal server error.' });
+		console.error("Error holding seat:", error);
+		res.status(500).json({ error: "Internal server error." });
 	}
 }
 
@@ -121,15 +121,15 @@ export async function reserveSeat(req: Request, res: Response): Promise<void> {
 		const seat = await getSeatById(id);
     // Check that we have a seat which exists and can legitimatly be saved
 		if (!seat) {
-			res.status(404).json({ error: 'Seat not found.' });
+			res.status(404).json({ error: "Seat not found." });
 			return;
 		}
 		if (seat.status !== SeatStatus.ONHOLD) {
-			res.status(403).json({ error: 'Seat is not On hold.' });
+			res.status(403).json({ error: "Seat is not On hold." });
 			return;
 		}
 		if (seat.UUID !== UUID) {
-			res.status(403).json({ error: 'User is not holding this seat.' });
+			res.status(403).json({ error: "User is not holding this seat." });
 			return;
 		}
 
@@ -139,10 +139,10 @@ export async function reserveSeat(req: Request, res: Response): Promise<void> {
 
 		// Release the seat lock.
 		await releaseSeatLock(id);
-		res.json({ message: 'Seat reserved successfully.', seat });
+		res.json({ message: "Seat reserved successfully.", seat });
 	} catch (error) {
-		console.error('Error reserving seat:', error);
-		res.status(500).json({ error: 'Internal server error.' });
+		console.error("Error reserving seat:", error);
+		res.status(500).json({ error: "Internal server error." });
 	}
 }
 
@@ -161,15 +161,15 @@ export async function refreshHoldSeat(req: Request, res: Response): Promise<void
 		const LOCK_EXPIRATION_TIME = Number(process.env.LOCK_EXPIRATION_TIME) || 60;
 		const seat = await getSeatById(id);
 		if (!seat) {
-			res.status(404).json({ error: 'Seat not found.' });
+			res.status(404).json({ error: "Seat not found." });
 			return;
 		}
 		if (seat.status !== SeatStatus.ONHOLD) {
-			res.status(409).json({ error: 'Seat is not On hold.' });
+			res.status(409).json({ error: "Seat is not On hold." });
 			return;
 		}
 		if (seat.UUID !== UUID) {
-			res.status(403).json({ error: 'UUID does not match held seat.' });
+			res.status(403).json({ error: "UUID does not match held seat." });
 			return;
 		}
 
@@ -177,7 +177,7 @@ export async function refreshHoldSeat(req: Request, res: Response): Promise<void
 		await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
 		res.json({ message: `Seat hold refreshed for seat ${seat.id}`});
 	} catch (error) {
-		console.error('Error refreshing seat hold:', error);
-		res.status(500).json({ error: 'Internal server error.' });
+		console.error("Error refreshing seat hold:", error);
+		res.status(500).json({ error: "Internal server error." });
 	}
 }

@@ -12,8 +12,7 @@ For development purposes it contains two extra endpoints for getting a single ev
 ```
  +-------------------+     +-------------------+     +---------+
  |   User / Client   | --> | Node.js + Express | --> |  Redis  |
- +-------------------+     |      API          |     +---------+
-						               +-------------------+
+ +-------------------+     +-------------------+     +---------+
 ```
 
 - **Backend:** Node.js + Express (TypeScript)
@@ -68,9 +67,9 @@ For development purposes it contains two extra endpoints for getting a single ev
 ```
 {
 	id: string,           // Unique identifier for the seat
-	eventId: string,      // References the event's ID
-	UUID: string,         // References the user's UUID (empty if not held)
-	status: 'Available' | 'On hold' | 'Reserved' // Current status of the seat
+	eventId: string,      // References the event"s ID
+	UUID: string,         // References the user"s UUID (empty if not held)
+	status: "Available" | "On hold" | "Reserved" // Current status of the seat
 }
 ```
 
@@ -87,3 +86,4 @@ For development purposes it contains two extra endpoints for getting a single ev
 - Add authentication.
 - Add extensive tests for automated testing.
 - Add autoscaling for horizontal scaling of both the node and redis clusters.
+- Add queueing for the requests to hold a seat. This will help during busy periods. It should be possible to process requests for seats for several events concurrently and will protect both smaller and larger events.

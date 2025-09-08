@@ -1,4 +1,4 @@
-import redisClient from '../database/redisClient';
+import redisClient from "../database/redisClient";
 
 /**
  * Attempts to acquire a Redis lock for a seat.
@@ -6,17 +6,17 @@ import redisClient from '../database/redisClient';
  * @function acquireSeatLock
  * 
  * @param {string} seatId - The seat ID to lock.
- * @param {string} UUID - The user's UUID.
+ * @param {string} UUID - The user"s UUID.
  * @param {number} [expiration=60] - Lock expiration time in seconds (default: 60)
- * @returns {Promise<'OK' | null>} 'OK' if lock acquired, null otherwise.
+ * @returns {Promise<"OK" | null>} "OK" if lock acquired, null otherwise.
  */
-export async function acquireSeatLock(seatId: string, UUID: string, expiration: number = 60): Promise<'OK' | null> {
-  const lockKey = `seat:${seatId}:lock`;
+export async function acquireSeatLock(seatId: string, UUID: string, expiration: number = 60): Promise<"OK" | null> {
+  const lockKey = "seat:" + seatId + ":lock";
   const result = await redisClient.set(lockKey, UUID, {
     NX: true,
     EX: expiration,
   });
-  return result === 'OK' ? 'OK' : null;
+  return result === "OK" ? "OK" : null;
 }
 
 /**
@@ -28,6 +28,6 @@ export async function acquireSeatLock(seatId: string, UUID: string, expiration: 
  * @returns {Promise<void>} Resolves when the lock is released.
  */
 export async function releaseSeatLock(seatId: string): Promise<void> {
-  const lockKey = `seat:${seatId}:lock`;
+  const lockKey = "seat:" + seatId + ":lock";
   await redisClient.del(lockKey);
 }
