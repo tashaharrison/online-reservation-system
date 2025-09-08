@@ -9,21 +9,11 @@ For development purposes it contains two extra endpoints for getting a single ev
 
 **Architecture Diagram:**
 
-```mermaid
-flowchart LR
-	Client[User/Client]
-	API[Node.js + Express API]
-	Redis[(Redis Datastore)]
-	Docker[Docker Container]
-	Compose[Docker Compose]
-	Docs[OpenAPI Docs]
-
-	Client -->|HTTP Requests| API
-	API --> Redis
-	API --> Docs
-	API --> Docker
-	Docker --> Compose
-	Compose --> Redis
+```
+ +-------------------+     +-------------------+     +---------+
+ |   User / Client   | --> | Node.js + Express | --> |  Redis  |
+ +-------------------+     |      API          |     +---------+
+						               +-------------------+
 ```
 
 - **Backend:** Node.js + Express (TypeScript)
