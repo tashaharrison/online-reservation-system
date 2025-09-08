@@ -1,7 +1,6 @@
 {
   "name": "fabacus-online-reservation-system",
   "version": "1.0.0",
-  "type": "module",
   "main": "index.js",
   "scripts": {
     "build": "tsc",

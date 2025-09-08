@@ -10,15 +10,73 @@ For development purposes it contains two extra endpoints for getting a single ev
 **Architecture Diagram:**
 
 ```
- +-------------------+     +-------------------+     +---------+
- |   User / Client   | --> | Node.js + Express | --> |  Redis  |
- +-------------------+     +-------------------+     +---------+
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                    Client Layer                                    │
+├────────────────────────────────────────────────────────────────────────────────────┤
+│  Web Clients  │  Mobile Apps  │  API Consumers  │  Testing Tools (Postman/curl)   │
+└─────────────────────┬───────────────────────────────────────────────────────────────┘
+                      │ HTTP/HTTPS Requests
+                      │ (JSON payloads)
+                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              Docker Container (app)                                │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                           Node.js + Express Server                                 │
+│                              (TypeScript)                                          │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                              Application Layer                                     │
+├─────────────────┬──────────────┬──────────────┬──────────────┬────────────────────┤
+│   Routes        │ Controllers  │ Middleware   │ Models       │ Utilities          │
+│                 │              │              │              │                    │
+│ • events.route  │ • events     │ • redis      │ • event      │ • seatLock         │
+│ • seats.route   │ • seats      │   keyspace   │ • seat       │ • checkMaxSeats    │
+│                 │              │   notifications│             │                    │
+├─────────────────┴──────────────┴──────────────┴──────────────┴────────────────────┤
+│                              Data Access Layer                                     │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                             Redis Client                                           │
+│                           (redisClient.ts)                                         │
+└─────────────────────────────┬───────────────────────────────────────────────────────┘
+                              │ Redis Protocol
+                              │ TCP Connection
+                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                            Docker Container (redis)                                │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                               Redis Server                                         │
+│                              (Version 7 Alpine)                                   │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                              Data Structures                                       │
+├─────────────────────────────┬─────────────────────┬───────────────────────────────┤
+│  Hash Storage           │  Set Storage        │  Expiring Keys                    │
+│                         │                     │                                   │
+│  • event:{id}          │  • event:{id}:seats │  • seat:{id}:lock                │
+│    - name              │    - seat_id_1       │    - TTL for holds               │
+│    - totalSeats        │    - seat_id_2       │    - UUID for ownership          │
+│                        │    - ...             │                                   │
+│  • seat:{id}           │                      │  Keyspace Notifications          │
+│    - eventId           │                      │  • Expired key events            │
+│    - UUID              │                      │  • Automatic cleanup             │
+│    - status            │                      │                                   │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌─────────────────┐
+                              │  External Tools │
+                              ├─────────────────┤
+                              │ • Docker        │
+                              │ • Docker Compose│
+                              │ • OpenAPI Spec  │
+                              │ • Jest Testing  │
+                              └─────────────────┘
 ```
 
+**Technology Stack:**
 - **Backend:** Node.js + Express (TypeScript)
-- **Datastore:** Redis (for events, seats, locks)
-- **Containerization:** Docker & Docker Compose
-- **API Documentation:** OpenAPI (YAML)
+- **Datastore:** Redis 7 (for events, seats, distributed locks)
+- **Containerization:** Docker & Docker Compose with bridge networking
+- **API Documentation:** OpenAPI 3.0 (YAML)
+- **Testing:** Jest with TypeScript support
+- **Development:** ts-node-dev with hot reloading
 
 ## Key Components
 ### 1. Event Management
@@ -67,8 +125,8 @@ For development purposes it contains two extra endpoints for getting a single ev
 ```
 {
 	id: string,           // Unique identifier for the seat
-	eventId: string,      // References the event"s ID
-	UUID: string,         // References the user"s UUID (empty if not held)
+	eventId: string,      // References the event's ID
+	UUID: string,         // References the user's UUID (empty if not held)
 	status: "Available" | "On hold" | "Reserved" // Current status of the seat
 }
 ```

@@ -72,7 +72,6 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
       
       // Limit the max seats a user can have on hold.
       const heldSeatsCount = await checkMaxSeats(id, UUID);
-      console.log("Held Seats: ", heldSeatsCount);
 			if (heldSeatsCount >= MAX_HELD_SEATS) {
 				res.status(429).json({ error: `User cannot hold more than ${MAX_HELD_SEATS} seats.` });
 				return;

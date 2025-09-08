@@ -43,16 +43,16 @@ export interface Seat {
  */
 export function isValidSeat(seat: Seat): boolean {
 	return (
-			typeof seat.id === "string" && seat.id.trim() !== "" &&
-			typeof seat.eventId === "string" && seat.eventId.trim() !== "" &&
-			typeof seat.UUID === "string" && seat.UUID.trim() !== "" &&
+		typeof seat.id === "string" && seat.id.trim() !== "" &&
+		typeof seat.eventId === "string" && seat.eventId.trim() !== "" &&
+		typeof seat.UUID === "string" && seat.UUID.trim() !== "" &&
 		Object.values(SeatStatus).includes(seat.status)
 	);
 }
 
 /**
  * Saves a seat in Redis as a hash under key "seat:{id}".
- * Adds the seat ID to the event"s seat set for lookup.
+ * Adds the seat ID to the event's seat set for lookup.
  *
  * @function saveSeatToRedis
  * 
@@ -68,7 +68,7 @@ export async function saveSeatToRedis(seat: Seat, res?: import("express").Respon
 			UUID: seat.UUID,
 			status: seat.status,
 		});
-		// Add seat ID to event"s seat set for lookup
+		// Add seat ID to event's seat set for lookup
 		await redisClient.sAdd(`event:${seat.eventId}:seats`, seat.id);
 	} catch (error) {
 		console.error("Error saving seat:", error);
