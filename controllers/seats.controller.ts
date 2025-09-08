@@ -66,38 +66,38 @@ export async function getSeat(req: Request, res: Response): Promise<void> {
  */
 export async function holdSeat(req: Request, res: Response): Promise<void> {
 	try {
-			const { id, UUID } = req.body;
-	    const MAX_HELD_SEATS = Number(process.env.MAX_HELD_SEATS) || 6;
-	    const LOCK_EXPIRATION_TIME = Number(process.env.LOCK_EXPIRATION_TIME) || 60;
-      
-      // Limit the max seats a user can have on hold.
-      const heldSeatsCount = await checkMaxSeats(id, UUID);
-			if (heldSeatsCount >= MAX_HELD_SEATS) {
-				res.status(429).json({ error: `User cannot hold more than ${MAX_HELD_SEATS} seats.` });
-				return;
-			}
+    const { id, UUID } = req.body;
+    const MAX_HELD_SEATS = Number(process.env.MAX_HELD_SEATS) || 6;
+    const LOCK_EXPIRATION_TIME = Number(process.env.LOCK_EXPIRATION_TIME) || 60;
+    
+    // Limit the max seats a user can have on hold.
+    const heldSeatsCount = await checkMaxSeats(id, UUID);
+    if (heldSeatsCount >= MAX_HELD_SEATS) {
+      res.status(429).json({ error: `User cannot hold more than ${MAX_HELD_SEATS} seats.` });
+      return;
+    }
 
-			// Find the seat by seatId
-			const seat = await getSeatById(id);
-			if (!seat) {
-					res.status(404).json({ error: "Seat not found." });
-					return;
-			}
-			if (seat.status !== SeatStatus.AVAILABLE) {
-					res.status(409).json({ error: "Seat is not available." });
-					return;
-			}
+    // Find the seat by seatId
+    const seat = await getSeatById(id);
+    if (!seat) {
+        res.status(404).json({ error: "Seat not found." });
+        return;
+    }
+    if (seat.status !== SeatStatus.AVAILABLE) {
+        res.status(409).json({ error: "Seat is not available." });
+        return;
+    }
 
-			// Check if the seat is locked and update seat accordingly.
-			const lockResult = await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
-			if (lockResult !== "OK") {
-				res.status(423).json({ error: "Seat is already locked." });
-				return;
-			}
-			seat.UUID = UUID;
-			seat.status = SeatStatus.ONHOLD;
-			await saveSeatToRedis(seat, res);
-			res.json({ message: `Seat held for ${LOCK_EXPIRATION_TIME} seconds.`, seat });
+    // Check if the seat is locked and update seat accordingly.
+    const lockResult = await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
+    if (lockResult !== "OK") {
+      res.status(423).json({ error: "Seat is already locked." });
+      return;
+    }
+    seat.UUID = UUID;
+    seat.status = SeatStatus.ONHOLD;
+    await saveSeatToRedis(seat, res);
+    res.json({ message: `Seat held for ${LOCK_EXPIRATION_TIME} seconds.`, seat });
 	} catch (error) {
 		console.error("Error holding seat:", error);
 		res.status(500).json({ error: "Internal server error." });
