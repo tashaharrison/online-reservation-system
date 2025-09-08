@@ -1,7 +1,5 @@
-version: '3.8'
 services:
   app:
-    image: node:20-alpine
     build: .
     ports:
       - "3000:3000"
