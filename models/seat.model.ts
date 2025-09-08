@@ -10,9 +10,9 @@ import { getEventFromRedis } from "./event.model";
  * @property {string} RESERVED - The seat has been reserved.
  */
 export enum SeatStatus {
-	AVAILABLE = "Available",
-	ONHOLD = "On hold",
-	RESERVED = "Reserved",
+  AVAILABLE = "Available",
+  ONHOLD = "On hold",
+  RESERVED = "Reserved",
 }
 
 /**
@@ -26,10 +26,10 @@ export enum SeatStatus {
  * @property {SeatStatus} status - Status of the seat (available, held, reserved)
  */
 export interface Seat {
-	id: string;
-	eventId: string;
-	UUID: string;
-	status: SeatStatus;
+  id: string;
+  eventId: string;
+  UUID: string;
+  status: SeatStatus;
 }
 
 /**
@@ -42,12 +42,12 @@ export interface Seat {
  * @returns {boolean} True if valid, false otherwise
  */
 export function isValidSeat(seat: Seat): boolean {
-	return (
-		typeof seat.id === "string" && seat.id.trim() !== "" &&
-		typeof seat.eventId === "string" && seat.eventId.trim() !== "" &&
-		typeof seat.UUID === "string" && seat.UUID.trim() !== "" &&
-		Object.values(SeatStatus).includes(seat.status)
-	);
+  return (
+    typeof seat.id === "string" && seat.id.trim() !== "" &&
+    typeof seat.eventId === "string" && seat.eventId.trim() !== "" &&
+    typeof seat.UUID === "string" && seat.UUID.trim() !== "" &&
+    Object.values(SeatStatus).includes(seat.status)
+  );
 }
 
 /**
@@ -61,22 +61,22 @@ export function isValidSeat(seat: Seat): boolean {
  * @returns {Promise<void>} Resolves when the seat is saved
  */
 export async function saveSeatToRedis(seat: Seat, res?: import("express").Response): Promise<void> {
-	try {
-		await redisClient.hSet(`seat:${seat.id}`, {
-			id: seat.id,
-			eventId: seat.eventId,
-			UUID: seat.UUID,
-			status: seat.status,
-		});
-		// Add seat ID to event's seat set for lookup
-		await redisClient.sAdd(`event:${seat.eventId}:seats`, seat.id);
-	} catch (error) {
-		console.error("Error saving seat:", error);
-		if (res) {
-			res.status(500).json({ error: "Internal server error", details: error instanceof Error ? error.message : error });
-		}
-		throw error;
-	}
+  try {
+    await redisClient.hSet(`seat:${seat.id}`, {
+      id: seat.id,
+      eventId: seat.eventId,
+      UUID: seat.UUID,
+      status: seat.status,
+    });
+    // Add seat ID to event's seat set for lookup
+    await redisClient.sAdd(`event:${seat.eventId}:seats`, seat.id);
+  } catch (error) {
+    console.error("Error saving seat:", error);
+    if (res) {
+      res.status(500).json({ error: "Internal server error", details: error instanceof Error ? error.message : error });
+    }
+    throw error;
+  }
 }
 
 /**
@@ -88,35 +88,35 @@ export async function saveSeatToRedis(seat: Seat, res?: import("express").Respon
  * @returns {Promise<{ seats: Seat[]; total: number; event: object | null }>} Object with available seats, total count, and event
  */
 export async function getSeatsByEventId(
-	eventId: string,
-	options?: { availableOnly?: boolean }
+  eventId: string,
+  options?: { availableOnly?: boolean }
 ): Promise<{ seats: Seat[]; total: number; event: object | null }> {
-	const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
-	const seats: Seat[] = [];
-	const event = await getEventFromRedis(eventId);
-	for (const id of seatIds) {
-		const data = await redisClient.hGetAll(`seat:${id}`);
-		if (data && data.id) {
-			if (options?.availableOnly) {
-				if (data.status === SeatStatus.AVAILABLE) {
-					seats.push({
-						id: data.id,
-						eventId: data.eventId,
-						UUID: data.UUID,
-						status: data.status as SeatStatus,
-					});
-				}
-			} else {
-				seats.push({
-					id: data.id,
-					eventId: data.eventId,
-					UUID: data.UUID,
-					status: data.status as SeatStatus,
-				});
-			}
-		}
-	}
-	return { total: seats.length, event, seats };
+  const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
+  const seats: Seat[] = [];
+  const event = await getEventFromRedis(eventId);
+  for (const id of seatIds) {
+    const data = await redisClient.hGetAll(`seat:${id}`);
+    if (data && data.id) {
+      if (options?.availableOnly) {
+        if (data.status === SeatStatus.AVAILABLE) {
+          seats.push({
+            id: data.id,
+            eventId: data.eventId,
+            UUID: data.UUID,
+            status: data.status as SeatStatus,
+          });
+        }
+      } else {
+        seats.push({
+          id: data.id,
+          eventId: data.eventId,
+          UUID: data.UUID,
+          status: data.status as SeatStatus,
+        });
+      }
+    }
+  }
+  return { total: seats.length, event, seats };
 }
 
 /**
@@ -128,7 +128,7 @@ export async function getSeatsByEventId(
  * @returns {Promise<Seat | null>} The Seat object if found, or null if not found
  */
 export async function getSeatById(id: string): Promise<Seat | null> {
-	const data = await redisClient.hGetAll(`seat:${id}`);
+  const data = await redisClient.hGetAll(`seat:${id}`);
   if (!data || !data.id) return null;
   return {
     id: data.id,

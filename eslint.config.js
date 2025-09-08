@@ -1,8 +1,8 @@
-import tseslint from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
+const tseslint = require("@typescript-eslint/eslint-plugin");
+const tsParser = require("@typescript-eslint/parser");
 
 /** @type {import("eslint").FlatConfig[]} */
-export default [
+module.exports = [
   {
     files: ["**/*.ts", "**/*.js"],
     ignores: ["dist/**", "node_modules/**"],
