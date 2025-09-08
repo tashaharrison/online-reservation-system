@@ -2,12 +2,12 @@ import redisClient from '../database/redisClient';
 import { getEventFromRedis } from './event.model';
 
 /**
- * Seat model interface.
- * Represents a seat with a unique ID, references to an event, and a reservation.
- */
-
-/**
  * Enum for seat status.
+ *
+ * @enum {string}
+ * @property {string} AVAILABLE - The seat is available for reservation.
+ * @property {string} ONHOLD - The seat is currently held by a user.
+ * @property {string} RESERVED - The seat has been reserved.
  */
 export enum SeatStatus {
 	AVAILABLE = 'Available',
@@ -17,25 +17,29 @@ export enum SeatStatus {
 
 /**
  * Seat interface defining the structure of a seat object.
+ *
+ * @interface Seat
  * 
- * id: Unique identifier for the seat.
- * eventId: References the event's ID.
- * UUID: References the user's UUID.
- * status: Status of the seat (available, held, reserved).
+ * @property {string} id - Unique identifier for the seat
+ * @property {string} eventId - References the event's ID
+ * @property {string} UUID - References the user's UUID
+ * @property {SeatStatus} status - Status of the seat (available, held, reserved)
  */
 export interface Seat {
-	id: string; // Unique identifier for the seat
-	eventId: string; // References the event's ID
-	UUID: string; // References the user's UUID
-	status: SeatStatus; // Status of the seat
+	id: string;
+	eventId: string;
+	UUID: string;
+	status: SeatStatus;
 }
 
 /**
  * Validates a seat object.
  * Checks that all fields are non-empty strings and status is valid.
- * 
- * @param seat - The seat object to validate.
- * @returns True if valid, false otherwise.
+ *
+ * @function isValidSeat
+ *
+ * @param {Seat} seat - The seat object to validate
+ * @returns {boolean} True if valid, false otherwise
  */
 export function isValidSeat(seat: Seat): boolean {
 	return (
@@ -48,8 +52,13 @@ export function isValidSeat(seat: Seat): boolean {
 
 /**
  * Saves a seat in Redis as a hash under key 'seat:{id}'.
+ * Adds the seat ID to the event's seat set for lookup.
+ *
+ * @function saveSeatToRedis
  * 
- * @param seat - The seat object to save.
+ * @param {Seat} seat - The seat object to save
+ * @param {import('express').Response} [res] - Optional Express response object for error handling
+ * @returns {Promise<void>} Resolves when the seat is saved
  */
 export async function saveSeatToRedis(seat: Seat, res?: import('express').Response): Promise<void> {
 	try {
@@ -73,18 +82,16 @@ export async function saveSeatToRedis(seat: Seat, res?: import('express').Respon
 /**
  * Retrieves all available seats for a given event ID and returns the event object.
  *
- * @param eventId - The event ID to look up seats for.
- * @returns An object containing:
- *   - seats: Array of available Seat objects
- *   - total: Number of available seats
- *   - event: The full event object or null if not found
+ * @function getSeatsByEventId
+ * 
+ * @param {string} eventId - The event ID to look up seats for
+ * @returns {Promise<{ seats: Seat[]; total: number; event: object | null }>} Object with available seats, total count, and event
  */
 export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[]; total: number; event: object | null }> {
 		const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
 		const seats: Seat [] = [];
-		// Get event name.
+		// Get event data so we can add it to our object.
 		const event = await getEventFromRedis(eventId);
-    console.log('Event data:', eventId);
 		for (const id of seatIds) {
 			const data = await redisClient.hGetAll(`seat:${id}`);
 			if (data && data.id && data.status === SeatStatus.AVAILABLE) {
@@ -101,9 +108,11 @@ export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[
 
 /**
  * Retrieves a single seat by seat ID.
+ *
+ * @function getSeatById
  * 
- * @param id - The seat ID to look up.
- * @returns The Seat object if found, or null if not found.
+ * @param {string} id - The seat ID to look up
+ * @returns {Promise<Seat | null>} The Seat object if found, or null if not found
  */
 export async function getSeatById(id: string): Promise<Seat | null> {
 	const data = await redisClient.hGetAll(`seat:${id}`);

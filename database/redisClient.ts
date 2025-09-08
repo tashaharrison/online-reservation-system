@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 
+// Creates the redis client.
 const redisClient = createClient({
   socket: {
     host: process.env.REDIS_HOST || 'redis',
@@ -7,10 +8,13 @@ const redisClient = createClient({
   },
 });
 
+// Handles redis errors.
 redisClient.on('error', (err) => {
   console.error('Redis Client Error', err);
 });
 
+
+// Connects to redis
 (async () => {
   await redisClient.connect();
 })();
