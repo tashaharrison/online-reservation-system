@@ -87,14 +87,26 @@ export async function saveSeatToRedis(seat: Seat, res?: import('express').Respon
  * @param {string} eventId - The event ID to look up seats for
  * @returns {Promise<{ seats: Seat[]; total: number; event: object | null }>} Object with available seats, total count, and event
  */
-export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[]; total: number; event: object | null }> {
-		const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
-		const seats: Seat [] = [];
-		// Get event data so we can add it to our object.
-		const event = await getEventFromRedis(eventId);
-		for (const id of seatIds) {
-			const data = await redisClient.hGetAll(`seat:${id}`);
-			if (data && data.id && data.status === SeatStatus.AVAILABLE) {
+export async function getSeatsByEventId(
+	eventId: string,
+	options?: { availableOnly?: boolean }
+): Promise<{ seats: Seat[]; total: number; event: object | null }> {
+	const seatIds = await redisClient.sMembers(`event:${eventId}:seats`);
+	const seats: Seat[] = [];
+	const event = await getEventFromRedis(eventId);
+	for (const id of seatIds) {
+		const data = await redisClient.hGetAll(`seat:${id}`);
+		if (data && data.id) {
+			if (options?.availableOnly) {
+				if (data.status === SeatStatus.AVAILABLE) {
+					seats.push({
+						id: data.id,
+						eventId: data.eventId,
+						UUID: data.UUID,
+						status: data.status as SeatStatus,
+					});
+				}
+			} else {
 				seats.push({
 					id: data.id,
 					eventId: data.eventId,
@@ -103,7 +115,8 @@ export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[
 				});
 			}
 		}
-		return { total: seats.length, event, seats };
+	}
+	return { total: seats.length, event, seats };
 }
 
 /**
