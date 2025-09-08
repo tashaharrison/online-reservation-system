@@ -17,17 +17,6 @@ export async function acquireSeatLock(seatId: string, UUID: string, expiration: 
 }
 
 /**
- * Checks if a seat lock exists.
- * @param {string} seatId - The seat ID to check.
- * @returns {Promise<boolean>} True if locked, false otherwise.
- */
-export async function isSeatLocked(seatId: string): Promise<boolean> {
-  const lockKey = `seat:${seatId}:lock`;
-  const value = await redisClient.get(lockKey);
-  return value !== null;
-}
-
-/**
  * Releases a seat lock manually (if needed).
  * @param {string} seatId - The seat ID to unlock.
  * @returns {Promise<void>}

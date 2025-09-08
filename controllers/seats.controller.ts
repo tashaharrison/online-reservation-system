@@ -5,7 +5,7 @@ import {
 	saveSeatToRedis, 
 	SeatStatus
 } from '../models/seat.model';
-import { acquireSeatLock, isSeatLocked } from '../utils/seatLock';
+import { acquireSeatLock, releaseSeatLock } from '../utils/seatLock';
 
 /**
  * List all seats for a given event.
@@ -65,6 +65,7 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 		const { id, UUID, LOCK_EXPIRATION_TIME = 60 } = req.body;
 		// Find the seat by seatId
 		const seat = await getSeatById(id);
+    console.log('seat to hold: ', seat, id);
 		if (!seat) {
 			res.status(404).json({ error: 'Seat not found.' });
 			return;
@@ -91,7 +92,8 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * Reserve a seat (finalize reservation for a held seat).
+ * Reserve a seat.
+ * Seat must be On hold and the UUID must match.
  * 
  * @function reserveSeat
  * 
@@ -100,5 +102,32 @@ export async function holdSeat(req: Request, res: Response): Promise<void> {
  * @returns {Promise<void>} Responds with reservation confirmation or error
  */
 export async function reserveSeat(req: Request, res: Response): Promise<void> {
-	// TODO: Implement reservation logic
+	try {
+		const { id, UUID } = req.body;
+		const seat = await getSeatById(id);
+    // Check that we have a seat which exists and can legitimatly be saved
+		if (!seat) {
+			res.status(404).json({ error: 'Seat not found.' });
+			return;
+		}
+		if (seat.status !== SeatStatus.ONHOLD) {
+			res.status(403).json({ error: 'Seat is not On hold.' });
+			return;
+		}
+		if (seat.UUID !== UUID) {
+			res.status(403).json({ error: 'User is not holding this seat.' });
+			return;
+		}
+
+    // Update the status and reserve
+		seat.status = SeatStatus.RESERVED;
+		await saveSeatToRedis(seat, res);
+
+		// Release the seat lock
+		await releaseSeatLock(id);
+		res.json({ message: 'Seat reserved successfully.', seat });
+	} catch (error) {
+		console.error('Error reserving seat:', error);
+		res.status(500).json({ error: 'Internal server error.' });
+	}
 }

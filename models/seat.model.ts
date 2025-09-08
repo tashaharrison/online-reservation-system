@@ -9,9 +9,9 @@ import redisClient from '../database/redisClient';
  * Enum for seat status.
  */
 export enum SeatStatus {
-	AVAILABLE = 'available',
-	ONHOLD = 'on hold',
-	RESERVED = 'reserved',
+	AVAILABLE = 'Available',
+	ONHOLD = 'On hold',
+	RESERVED = 'Reserved',
 }
 
 /**
@@ -80,7 +80,7 @@ export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[
 	const seats: Seat[] = [];
 	for (const id of seatIds) {
 		const data = await redisClient.hGetAll(`seat:${id}`);
-		if (data && data.id) {
+		if (data && data.id && data.status === SeatStatus.AVAILABLE) {
 			seats.push({
 				id: data.id,
 				eventId: data.eventId,
