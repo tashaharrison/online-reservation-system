@@ -4,12 +4,15 @@ import { Event, isValidEvent, saveEventToRedis, getEventFromRedis } from '../mod
 import { Seat, saveSeatToRedis, SeatStatus } from '../models/seat.model';
 
 /**
- * Controller for creating a new event.
- * Validates the event data and stores it in Redis if valid.
+ * Create a new event and its seats.
+ * Validates event data, stores event in Redis, and creates seats in batches.
  * Returns 201 on success, 400 for invalid data, and 500 for server errors.
+ *
+ * @function createEvent
  * 
- * @param req - Express request object containing event data in the body.
- * @param res - Express response object.
+ * @param {Request} req Express request object containing event data in body
+ * @param {Response} res Express response object
+ * @returns {Promise<void>} Responds with created event or error
  */
 export async function createEvent(req: Request, res: Response): Promise<void> {
   try {
@@ -26,8 +29,6 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
     }
 
     await saveEventToRedis(event);
-
-    console.log('Event created: ', event.name);
 
     // Create seat objects in Redis for each seat in batches of 500
     // This is to handle large numbers of seats efficiently and prevent timeouts
@@ -58,11 +59,14 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * Controller for retrieving an event by ID.
+ * Retrieve an event by its ID.
  * Returns the event object if found, 404 if not found, and 500 for server errors.
+ *
+ * @function getEvent
  * 
- * @param req - Express request object containing event ID in params.
- * @param res - Express response object.
+ * @param {Request} req Express request object containing event ID in params
+ * @param {Response} res Express response object
+ * @returns {Promise<void>} Responds with event or error
  */
 export async function getEvent(req: Request, res: Response): Promise<void> {
   const { id } = req.params;

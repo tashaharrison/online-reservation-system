@@ -91,3 +91,21 @@ export async function getSeatsByEventId(eventId: string): Promise<{ seats: Seat[
 	}
 	return { total: seats.length, seats };
 }
+
+/**
+ * Retrieves a single seat by seat ID.
+ * 
+ * @param id - The seat ID to look up.
+ * @returns The Seat object if found, or null if not found.
+ */
+export async function getSeatById(id: string): Promise<Seat | null> {
+	const data = await redisClient.hGetAll(`seat:${id}`);
+  if (!data || !data.id) return null;
+  return {
+    id: data.id,
+    eventId: data.eventId,
+    UUID: data.UUID,
+    status: data.status as SeatStatus,
+  };
+}
+
