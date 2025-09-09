@@ -5,88 +5,68 @@ The online reservation system API provides endpoints for creating events and res
 
 Key features:
 - **Asynchronous Processing**: Seat hold/reserve operations are queued and processed by background workers
-- **Scalable Architecture**: Separate server and worker processes for optimal resource utilization
+- **Scalable Architecture**: Separate server and worker processes
 - **Distributed Locking**: Distributed locking mechanism with Redis keyspace notifications for holding seats
 
 For development purposes it contains additional endpoints for getting individual events and seats.
 
 ## Architecture
 
-**Updated Architecture Diagram:**
+**Architecture Diagram:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                                    Client Layer                                    │
-├────────────────────────────────────────────────────────────────────────────────────┤
-│  Web Clients  │  Mobile Apps  │  API Consumers  │  Testing Tools    │
-└─────────────────────┬───────────────────────────────────────────────────────────────┘
-                      │ HTTP/HTTPS Requests
-                      │ (JSON payloads)
-                      ▼
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              Docker Container (app)                                │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                    Node.js Application (Multi-Process)                             │
-│                              (TypeScript)                                          │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                              Main Server Process                                   │
-│                           (src/index.ts → port 3000)                              │
-├─────────────────┬──────────────┬──────────────┬──────────────┬────────────────────┤
-│   Routes        │ Controllers  │ Middleware   │ Models       │ Queue Producers    │
-│                 │              │              │              │                    │
-│ • events.route  │ • events     │ • redis      │ • event      │ • Job enqueueing   │
-│ • seats.route   │ • seats      │   keyspace   │ • seat       │ • Status endpoints │
-│                 │              │   notifications│             │                    │
-├─────────────────┴──────────────┴──────────────┴──────────────┴────────────────────┤
-│                       Queue Worker Processes (5 workers)                          │
-│                        (src/worker.ts → background)                               │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│              Job Processors    │  Queue Management   │  Cleanup Services         │
-│                               │                     │                            │
-│ • HOLD_SEAT operations        │ • Custom Redis queues     │ • Expired job cleanup     │
-│ • RESERVE_SEAT operations     │ • Job retries       │ • Automatic restarts      │
-│ • Result storage              │ • Concurrency ctrl │                            │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                              Data Access Layer                                     │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│            Main Redis Client             │        Queue Redis Client              │
-│         (database/redisClient.ts)        │     (database/queueRedisClient.ts)     │
-└─────────────────────────────┬────────────┴─────────────────────────────┬───────────┘
-                              │ Redis Protocol                           │
-                              │ TCP Connections                          │
-                              ▼                                          ▼
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                            Docker Container (redis)                                │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                               Redis Server                                         │
-│                              (Version 7 Alpine)                                   │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                           Data Storage & Queuing                                   │
-├────────────────────┬─────────────────────┬────────────────────┬─────────────────────┤
-│  Application Data  │  Queue Storage      │  Job Results       │  Expiring Keys      │
-│                    │                     │                    │                     │
-│  • event:{id}      │ • queue:seat_operations    │ • job:{id}:result  │ • seat:{id}:lock   │
-│    - name          │   - job data        │   - status         │   - TTL for holds  │
-│    - totalSeats    │   - priorities      │   - success        │   - UUID ownership │
-│                    │   - delays          │   - error info     │                    │
-│  • seat:{id}       │ • queue:seat_operations:     │ • job:{id}:meta    │  Keyspace Notify   │
-│    - eventId       │   completed         │   - timestamps     │ • Expired events   │
-│    - UUID          │   failed            │   - position       │ • Auto cleanup     │
-│    - status        │   active            │                    │                    │
-│                    │   waiting           │                    │                    │
-│  • event:{id}:     │                     │                    │                    │
-│    seats (set)     │                     │                    │                    │
-└────────────────────┴─────────────────────┴────────────────────┴─────────────────────┘
-
-                              ┌─────────────────────────────────────────────┐
-                              │              External Tools                 │
-                              ├─────────────────────────────────────────────┤
-                              │ • Docker & Docker Compose                  │
-                              │ • OpenAPI 3.0 Specification               │
-                              │ • Jest Testing Framework                   │
-                              │ • TypeScript Compiler                     │
-                              │ • Structured Logging (logs/ directory)    │
-                              └─────────────────────────────────────────────┘
+┌───────────────────────────── Client Layer ─────────────────────────────┐
+│  Web Clients  │  Mobile Apps  │  API Consumers  │  Testing Tools      │
+└─────────────────────────────┬──────────────────────────────────────────┘
+                             │ HTTP/HTTPS Requests (JSON payloads)
+                             ▼
+┌───────────────────────────── Docker Container: app ────────────────────┐
+│ Node.js Application (TypeScript, Multi-Process)                       │
+│ Main Server Process (src/index.ts → port 3000)                        │
+│ ┌─────────────┬─────────────┬─────────────┬─────────────┬────────────┐│
+│ │  Routes     │ Controllers │ Middleware  │ Models      │ Queue      ││
+│ │             │             │             │             │ Producers  ││
+│ │ events      │ events      │ redis       │ event       │ Job        ││
+│ │ seats       │ seats       │ keyspace    │ seat        │ enqueueing ││
+│ │             │             │ notifications│            │ Status     ││
+│ └─────────────┴─────────────┴─────────────┴─────────────┴────────────┘│
+│ Queue Worker Processes (5 workers, src/worker.ts)                     │
+│ ┌─────────────┬─────────────┬─────────────┐                          │
+│ │ Job         │ Queue       │ Cleanup     │                          │
+│ │ Processors  │ Management  │ Services    │                          │
+│ │ HOLD_SEAT   │ Custom      │ Expired     │                          │
+│ │ RESERVE_SEAT│ Redis queues│ job cleanup │                          │
+│ │ Result      │ Job retries │ Auto restarts│                         │
+│ │ storage     │ Concurrency │             │                          │
+│ └─────────────┴─────────────┴─────────────┘                          │
+│ Data Access Layer:                                                    │
+│ ┌─────────────┬─────────────┐                                       │
+│ │ Main Redis  │ Queue Redis │                                       │
+│ │ Client      │ Client      │                                       │
+│ │ (redisClient│ (queueRedis │                                       │
+│ │ .ts)        │ Client.ts)  │                                       │
+│ └─────────────┴─────────────┘                                       │
+└──────────────────────────────────────────────────────────────────────┘
+                             │ Redis Protocol / TCP Connections
+                             ▼
+┌───────────────────────────── Docker Container: redis ────────────────┐
+│ Redis Server (Version 7 Alpine)                                      │
+│ ┌─────────────┬─────────────┬─────────────┬─────────────┐           │
+│ │ Application │ Queue       │ Job Results │ Expiring    │           │
+│ │ Data        │ Storage     │             │ Keys        │           │
+│ │ event:{id}  │ queue:seat_ │ job:{id}:   │ seat:{id}:  │           │
+│ │ seat:{id}   │ operations  │ result      │ lock        │           │
+│ │ event:{id}: │             │ job:{id}:   │             │           │
+│ │ seats (set) │             │ meta        │             │           │
+│ └─────────────┴─────────────┴─────────────┴─────────────┘           │
+└──────────────────────────────────────────────────────────────────────┘
+                             ┌───────────── External Tools ───────────┐
+                             │ Docker & Docker Compose                │
+                             │ OpenAPI 3.0 Specification              │
+                             │ Jest Testing Framework                 │
+                             │ TypeScript Compiler                    │
+                             │ Structured Logging (logs/ directory)   │
+                             └────────────────────────────────────────┘
 ```
 
 **Technology Stack:**
@@ -113,9 +93,9 @@ Client Request → Validation → Queue Job → Background Worker → Result Sto
 ## Key Components
 
 ### 1. Event Management (Synchronous)
-- Create events with a name and total seat count
-- Store event data in Redis as hashes
-- Validate seat limits (10-10,000)
+- Create events with a name and total seat count.
+- Store event data in Redis as hashes.
+- Validate seat limits (10-10,000).
 
 ### 2. Seat Management (Asynchronous)
 - Seats are created in batches for each event.
@@ -130,10 +110,9 @@ Client Request → Validation → Queue Job → Background Worker → Result Sto
 - **Release:** Lock is released on reservation or expiration.
 
 ### 4. Queue System
-#### Queue Producer (Main Server)
 
 #### Queue Implementation
-The queue system is built using native Redis data structures:
+The queue system is built using native Redis data structures.
 
 **Core Components:**
 - **Queue Storage**: Redis list (`queue:seat_operations`) for FIFO job ordering
