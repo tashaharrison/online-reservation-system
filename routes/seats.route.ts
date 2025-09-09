@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listSeats, getSeat, holdSeat, reserveSeat, refreshHoldSeat } from "../controllers/seats.controller";
+import { listSeats, getSeat, holdSeat, reserveSeat, refreshHoldSeat, getJobStatus } from "../controllers/seats.controller";
 
 const router = Router();
 
@@ -17,5 +17,8 @@ router.post("/reserve", reserveSeat);
 
 // Refresh a hold.
 router.post("/hold/refresh", refreshHoldSeat);
+
+// Get job status.
+router.get("/job/:jobId/status", getJobStatus);
 
 export default router;

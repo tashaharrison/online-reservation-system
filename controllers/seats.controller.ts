@@ -2,11 +2,9 @@ import { Request, Response } from "express";
 import { 
   getSeatsByEventId,
   getSeatById, 
-  saveSeatToRedis, 
   SeatStatus
 } from "../models/seat.model";
-import { acquireSeatLock, releaseSeatLock } from "../utils/seatLock";
-import { checkMaxSeats } from "../utils/checkMaxSeats";
+import { seatQueue } from "../utils/queue/seatQueue";
 
 /**
  * List all seats for a given event.
@@ -56,97 +54,172 @@ export async function getSeat(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * Hold a seat for a configured amount of time (default 60s).
+ * Hold a seat using queue-based processing for optimal performance during high load.
+ * This endpoint queues the request and returns immediately with job information.
  * 
  * @function holdSeat
  * 
- * @param {Request} req - Express request object containing seatId, UUID, and optional LOCK_EXPIRATION_TIME in body
+ * @param {Request} req - Express request object containing seatId, UUID in body
  * @param {Response} res - Express response object
- * @returns {Promise<void>} Responds with success message and held seat, or error if unavailable/locked
+ * @returns {Promise<void>} Responds with job ID and status endpoint
  */
 export async function holdSeat(req: Request, res: Response): Promise<void> {
   try {
-    const { id, UUID } = req.body;
-    const MAX_HELD_SEATS = Number(process.env.MAX_HELD_SEATS) || 6;
-    const LOCK_EXPIRATION_TIME = Number(process.env.LOCK_EXPIRATION_TIME) || 60;
-    
-    // Limit the max seats a user can have on hold.
-    const heldSeatsCount = await checkMaxSeats(id, UUID);
-    if (heldSeatsCount >= MAX_HELD_SEATS) {
-      res.status(429).json({ error: `User cannot hold more than ${MAX_HELD_SEATS} seats.` });
+    const { id: seatId, UUID: userId } = req.body;
+
+    if (!seatId || !userId) {
+      res.status(400).json({ error: "Seat ID and User UUID are required." });
       return;
     }
 
-    // Find the seat by seatId
-    const seat = await getSeatById(id);
+    // Check if seat exists before queuing
+    const seat = await getSeatById(seatId);
     if (!seat) {
-        res.status(404).json({ error: "Seat not found." });
-        return;
-    }
-    if (seat.status !== SeatStatus.AVAILABLE) {
-        res.status(409).json({ error: "Seat is not available." });
-        return;
-    }
-
-    // Check if the seat is locked and update seat accordingly.
-    const lockResult = await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
-    if (lockResult !== "OK") {
-      res.status(423).json({ error: "Seat is already locked." });
+      res.status(404).json({ error: "Seat not found." });
       return;
     }
-    seat.UUID = UUID;
-    seat.status = SeatStatus.ONHOLD;
-    await saveSeatToRedis(seat, res);
-    res.json({ message: `Seat held for ${LOCK_EXPIRATION_TIME} seconds.`, seat });
+
+    // Check if seat is available for holding
+    if (seat.status !== SeatStatus.AVAILABLE) {
+      res.status(409).json({ 
+        error: "Seat is not available for holding.",
+        currentStatus: seat.status 
+      });
+      return;
+    }
+
+    // Add to queue and return immediately
+    const queueResponse = await seatQueue.enqueue("HOLD_SEAT", seatId, userId);
+    
+    res.status(202).json({
+      message: "Seat hold request queued successfully",
+      jobId: queueResponse.jobId,
+      position: queueResponse.position,
+      estimatedWaitTime: queueResponse.estimatedWaitTime,
+      statusEndpoint: `/seats/job/${queueResponse.jobId}/status`
+    });
   } catch (error) {
-    console.error("Error holding seat:", error);
+    console.error("Error queuing seat hold:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 }
 
 /**
- * Reserve a seat.
+ * Reserve a seat using queue-based processing for optimal performance during high load.
+ * This endpoint queues the request and returns immediately with job information.
  * Seat must be On hold and the UUID must match.
  * 
  * @function reserveSeat
  * 
  * @param {Request} req - Express request object containing seatId and UUID in body
  * @param {Response} res - Express response object
- * @returns {Promise<void>} Responds with reservation confirmation or error
+ * @returns {Promise<void>} Responds with job ID and status endpoint
  */
 export async function reserveSeat(req: Request, res: Response): Promise<void> {
   try {
-    const { id, UUID } = req.body;
-    const seat = await getSeatById(id);
-    // Check that we have a seat which exists and can legitimatly be saved
+    const { id: seatId, UUID: userId } = req.body;
+
+    if (!seatId || !userId) {
+      res.status(400).json({ error: "Seat ID and User UUID are required." });
+      return;
+    }
+
+    // Check if seat exists before queuing
+    const seat = await getSeatById(seatId);
     if (!seat) {
       res.status(404).json({ error: "Seat not found." });
       return;
     }
+
+    // Check if seat is on hold
     if (seat.status !== SeatStatus.ONHOLD) {
-      res.status(403).json({ error: "Seat is not On hold." });
-      return;
-    }
-    if (seat.UUID !== UUID) {
-      res.status(403).json({ error: "User is not holding this seat." });
+      res.status(409).json({ 
+        error: "Seat is not on hold.",
+        currentStatus: seat.status 
+      });
       return;
     }
 
-    // Update the status and reserve.
-    seat.status = SeatStatus.RESERVED;
-    await saveSeatToRedis(seat, res);
+    // Check if the user holds this seat
+    if (seat.UUID !== userId) {
+      res.status(403).json({ 
+        error: "You do not hold this seat." 
+      });
+      return;
+    }
 
-    // Release the seat lock.
-    await releaseSeatLock(id);
-    res.json({ message: "Seat reserved successfully.", seat });
+    // Add to queue and return immediately
+    const queueResponse = await seatQueue.enqueue("RESERVE_SEAT", seatId, userId);
+    
+    res.status(202).json({
+      message: "Seat reservation request queued successfully",
+      jobId: queueResponse.jobId,
+      position: queueResponse.position,
+      estimatedWaitTime: queueResponse.estimatedWaitTime,
+      statusEndpoint: `/seats/job/${queueResponse.jobId}/status`
+    });
   } catch (error) {
-    console.error("Error reserving seat:", error);
+    console.error("Error queuing seat reservation:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 }
 
 /**
- * Refresh the hold on a seat, restarting the lock expiration timer.
+ * Get the status and result of a queued job
+ * 
+ * @function getJobStatus
+ * 
+ * @param {Request} req - Express request object containing jobId in params
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>} Responds with job status and result
+ */
+export async function getJobStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { jobId } = req.params;
+
+    if (!jobId) {
+      res.status(400).json({ error: "Job ID is required." });
+      return;
+    }
+
+    const result = await seatQueue.getJobResult(jobId);
+
+    if (!result) {
+      // Job might still be processing or doesn't exist
+      res.status(404).json({ 
+        error: "Job not found or still processing",
+        jobId: jobId
+      });
+      return;
+    }
+
+    if (result.status === "completed") {
+      res.status(200).json({
+        status: "completed",
+        result: result.result,
+        completedAt: result.completedAt
+      });
+    } else if (result.status === "failed") {
+      res.status(200).json({
+        status: "failed",
+        error: result.error,
+        failedAt: result.failedAt
+      });
+    } else {
+      // Job is still processing
+      res.status(200).json({
+        status: "processing",
+        jobId: jobId
+      });
+    }
+  } catch (error) {
+    console.error("Error getting job status:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+}
+
+/**
+ * Refresh the hold on a seat using queue-based processing.
  *
  * @function refreshHoldSeat
  * 
@@ -172,7 +245,9 @@ export async function refreshHoldSeat(req: Request, res: Response): Promise<void
       return;
     }
 
-    // Refresh the lock by resetting the expiration.
+    // For refresh, we can use direct processing since it's a simple operation
+    // and doesn't involve complex seat allocation logic
+    const { acquireSeatLock } = await import("../utils/seatLock");
     await acquireSeatLock(id, UUID, LOCK_EXPIRATION_TIME);
     res.json({ message: `Seat hold refreshed for seat ${seat.id}`});
   } catch (error) {

@@ -16,8 +16,11 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Make startup script executable
+RUN chmod +x start.sh
+
 # Expose application port
 EXPOSE 3000
 
-# Start the server
-CMD ["node", "dist/index.js"]
+# Start both server and queue worker
+CMD ["./start.sh"]

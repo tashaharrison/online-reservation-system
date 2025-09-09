@@ -1,8 +1,15 @@
 openapi: 3.0.4
 info:
   title: Online Reservation System API
-  version: 1.0.0
-  description: API for managing events and seat reservations
+  version: 2.0.0
+  description: |
+    API for managing events and seat reservations with asynchronous queue-based processing.
+    
+    ## Queue-Based Operations
+    The `/seats/hold` and `/seats/reserve` endpoints now use asynchronous processing:
+    1. Submit request → Immediate response with job ID (202 status)
+    2. Poll job status → Check completion status and results
+    3. Get final result → Success or failure with detailed information
 servers:
   - url: http://localhost:3000
 paths:
@@ -33,35 +40,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    description: Unique identifier for the event
-                  name:
-                    type: string
-                    description: Name of the event
-                  totalSeats:
-                    type: integer
-                    description: Total number of seats for the event
+                $ref: '#/components/schemas/Event'
         "400":
           description: Invalid event data
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
   /events/{id}:
     get:
       summary: Get event by ID
@@ -77,32 +68,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  name:
-                    type: string
-                  totalSeats:
-                    type: integer
+                $ref: '#/components/schemas/Event'
         "404":
           description: Event not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
   /seats/get/{id}:
     get:
       summary: Get seat by ID
@@ -118,35 +96,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  eventId:
-                    type: string
-                  UUID:
-                    type: string
-                  status:
-                    type: string
-                    enum: ["Available", "On hold", "Reserved"]
+                $ref: '#/components/schemas/Seat'
         "404":
           description: Seat not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
   /seats/list/{eventId}:
     get:
       summary: List available seats for an event
@@ -168,40 +130,23 @@ paths:
                     type: integer
                     description: Total number of available seats
                   event:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      totalSeats:
-                        type: integer
+                    $ref: '#/components/schemas/Event'
                   seats:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        eventId:
-                          type: string
-                        UUID:
-                          type: string
-                        status:
-                          type: string
-                          enum: ["Available", "On hold", "Reserved"]
+                      $ref: '#/components/schemas/Seat'
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
   /seats/hold:
     post:
-      summary: Hold a seat for a configured amount of time
+      summary: Hold a seat using asynchronous queue processing
+      description: |
+        Queues a seat hold request for background processing. Returns immediately with job information.
+        Use the returned job ID to poll for completion status via `/seats/job/{jobId}/status`.
       requestBody:
         required: true
         content:
@@ -219,75 +164,159 @@ paths:
                 - id
                 - UUID
       responses:
-        "200":
-          description: Seat held successfully
+        "202":
+          description: Seat hold request queued successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  seat:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      eventId:
-                        type: string
-                      UUID:
-                        type: string
-                      status:
-                        type: string
-                        enum: ["Available", "On hold", "Reserved"]
+                $ref: '#/components/schemas/QueueResponse'
+        "400":
+          description: Missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "404":
           description: Seat not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "409":
-          description: Seat not available
+          description: Seat is not available for holding
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-        "423":
-          description: Seat is already locked
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-        "429":
-          description: Max held seats reached
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      currentStatus:
+                        type: string
+                        description: Current status of the seat
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
+  /seats/reserve:
+    post:
+      summary: Reserve a held seat using asynchronous queue processing
+      description: |
+        Queues a seat reservation request for background processing. Seat must be "On hold" and UUID must match.
+        Returns immediately with job information. Use the returned job ID to poll for completion status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: Seat ID
+                UUID:
+                  type: string
+                  description: User UUID that must match the held seat
+              required:
+                - id
+                - UUID
+      responses:
+        "202":
+          description: Seat reservation request queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueResponse'
+        "400":
+          description: Missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: User does not hold this seat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Seat not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "409":
+          description: Seat is not on hold
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      currentStatus:
+                        type: string
+                        description: Current status of the seat
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /seats/job/{jobId}/status:
+    get:
+      summary: Get the status and result of a queued job
+      description: |
+        Check the status of a previously queued seat operation. Job results are available 
+        for 5 minutes after completion.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Job ID returned from hold/reserve endpoints
+      responses:
+        "200":
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/JobStatusProcessing'
+                  - $ref: '#/components/schemas/JobStatusCompleted'
+                  - $ref: '#/components/schemas/JobStatusFailed'
+        "400":
+          description: Missing job ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Job not found or still processing
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      jobId:
+                        type: string
+                        description: The requested job ID
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /seats/hold/refresh:
     post:
-      summary: Refresh hold on a seat, restarting the lock expiration timer
+      summary: Refresh hold on a seat (synchronous operation)
+      description: Refresh hold on a seat, restarting the lock expiration timer. This operation is processed synchronously.
       requestBody:
         required: true
         content:
@@ -319,105 +348,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "404":
           description: Seat not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "409":
-          description: Seat is not On hold
+          description: Seat is not on hold
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
         "500":
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-  /seats/reserve:
-    post:
-      summary: Reserve a seat (must be On hold and UUID must match)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                id:
-                  type: string
-                  description: Seat ID
-                UUID:
-                  type: string
-                  description: User UUID that must match the held seat
-              required:
-                - id
-                - UUID
-      responses:
-        "200":
-          description: Seat reserved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  seat:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      eventId:
-                        type: string
-                      UUID:
-                        type: string
-                      status:
-                        type: string
-                        enum: ["Available", "On hold", "Reserved"]
-        "403":
-          description: Seat is not On hold or UUID mismatch
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-        "404":
-          description: Seat not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                $ref: '#/components/schemas/Error'
 components:
   schemas:
     Event:
@@ -425,6 +374,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Unique identifier for the event
         name:
           type: string
@@ -441,9 +391,11 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Unique identifier for the seat
         eventId:
           type: string
+          format: uuid
           description: References the event's ID
         UUID:
           type: string
@@ -457,6 +409,118 @@ components:
         - eventId
         - UUID
         - status
+    QueueResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Confirmation message
+        jobId:
+          type: string
+          format: uuid
+          description: Unique identifier for the queued job
+        position:
+          type: integer
+          minimum: 0
+          description: Position in queue (0 = first)
+        estimatedWaitTime:
+          type: integer
+          minimum: 0
+          description: Estimated wait time in seconds
+        statusEndpoint:
+          type: string
+          format: uri
+          description: Endpoint to check job status
+      required:
+        - message
+        - jobId
+        - position
+        - estimatedWaitTime
+        - statusEndpoint
+      example:
+        message: "Seat hold request queued successfully"
+        jobId: "d832d651-ba00-48da-88a6-993f39cf8765"
+        position: 0
+        estimatedWaitTime: 0
+        statusEndpoint: "/seats/job/d832d651-ba00-48da-88a6-993f39cf8765/status"
+    JobStatusProcessing:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["processing"]
+        jobId:
+          type: string
+          format: uuid
+      required:
+        - status
+        - jobId
+      example:
+        status: "processing"
+        jobId: "d832d651-ba00-48da-88a6-993f39cf8765"
+    JobStatusCompleted:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["completed"]
+        result:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+            seat:
+              $ref: '#/components/schemas/Seat'
+            status:
+              type: integer
+              description: HTTP status code
+          required:
+            - success
+            - message
+            - status
+        completedAt:
+          type: integer
+          format: int64
+          description: Timestamp when job completed
+      required:
+        - status
+        - result
+        - completedAt
+      example:
+        status: "completed"
+        result:
+          success: true
+          message: "Seat held for 60 seconds."
+          seat:
+            id: "504d8c46-c062-4023-b571-70266e02e0e7"
+            eventId: "70dec481-724d-4df8-8d8e-4ee7d3f0b28f"
+            UUID: "user-test-123"
+            status: "On hold"
+          status: 200
+        completedAt: 1757366264200
+    JobStatusFailed:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["failed"]
+        error:
+          type: string
+          description: Error message explaining why the job failed
+        failedAt:
+          type: integer
+          format: int64
+          description: Timestamp when job failed
+      required:
+        - status
+        - error
+        - failedAt
+      example:
+        status: "failed"
+        error: "Seat is already locked."
+        failedAt: 1757366264200
     Error:
       type: object
       properties:

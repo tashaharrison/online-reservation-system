@@ -7,5 +7,13 @@
     "strict": true,
     "esModuleInterop": true
   },
-  "include": ["index.ts", "routes/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "routes/**/*.ts",
+    "controllers/**/*.ts",
+    "models/**/*.ts",
+    "utils/**/*.ts",
+    "database/**/*.ts",
+    "middleware/**/*.ts"
+  ]
 }
